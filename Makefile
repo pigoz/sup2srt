@@ -1,4 +1,4 @@
-.PHONY: build clean run
+.PHONY: build clean run test
 
 BUILDDIR=./build
 
@@ -8,8 +8,13 @@ build:
 	[ -d $(BUILDDIR) ] || meson $(BUILDDIR)
 	ninja -C$(BUILDDIR)
 
+test: build
+	FRAME_LIMIT=3 FILE=test/bgum1.sup make run
+	xattr -l supdata/frame-00001.png
+
 clean:
 	rm -r $(BUILDDIR)
+	rm -r supdata
 
 run:
-	$(BUILDDIR)/sup2srt
+	$(BUILDDIR)/sup2srt $(FILE)
