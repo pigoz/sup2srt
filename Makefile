@@ -9,7 +9,7 @@ build:
 	ninja -C$(BUILDDIR)
 
 test: build
-	FRAME_LIMIT=3 FILE=test/bgum1.sup make run
+	FRAME_LIMIT=7 FILE=test/bgum1.sup make run
 	xattr -l supdata/frame-00001.png
 
 clean:

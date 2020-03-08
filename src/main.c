@@ -153,9 +153,11 @@ static void screenshot(struct sub *sub) {
     log("[%04d] %f => %f\n", sub->index, sub->start, sub->end);
     int pixel_size = 4;
     int depth = 8;
+    AVSubtitle avsub = sub->avsub;
     int width = 1920;
     int height = 1080;
-    AVSubtitle avsub = sub->avsub;
+    int lsize = 0;
+    uint8_t *pict;
 
     for (int i = 0; i < avsub.num_rects; i++) {
         AVSubtitleRect *rect = avsub.rects[i];
@@ -164,18 +166,22 @@ static void screenshot(struct sub *sub) {
         assert(rect->nb_colors <= 256);
         uint32_t pal[256] = {0};
         memcpy(pal, data[1], rect->nb_colors * 4);
-        int lsize = rect->linesize[0];
+        lsize = rect->linesize[0];
         width = rect->w;
         height = rect->h;
+        pict = talloc_array(NULL, uint8_t, 4 * width * height);
 
         for(int y = 0; y < rect->h; y++) {
             for(int x = 0; x < rect->w; x++) {
-                int color = data[0][y * lsize + x];
+                int idx = y * lsize + x;
+                int color = data[0][idx];
+                memcpy(&pict[idx], &pal[color], 4);
+                /*
                 uint8_t rgba[4];
-                memcpy(rgba, &pal[color], 4);
                 continue;
                 log("%d %d => %d-%d-%d-%d \n",
                     x, y, rgba[0], rgba[1], rgba[2], rgba[3]);
+                */
             }
         }
     }
@@ -193,11 +199,12 @@ static void screenshot(struct sub *sub) {
         png_byte *row = png_malloc(png, sizeof(uint8_t) * width * pixel_size);
         rows[y] = row;
         for (int x = 0; x < width; x++) {
-            // pixel_t * pixel = pixel_at(bitmap, x, y);
-            *row++ = 255;
-            *row++ = 0;
-            *row++ = 0;
-            *row++ = 20;
+            uint8_t *rgba = &pict[y * lsize + x];
+            int l = 80;
+            *row++ = rgba[0] > l ? 0 : 255;
+            *row++ = rgba[0] > l ? 0 : 255;
+            *row++ = rgba[0] > l ? 0 : 255;
+            *row++ = rgba[0] <= 112 ? 0 : 255;
         }
     }
 
