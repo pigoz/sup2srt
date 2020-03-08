@@ -17,7 +17,6 @@
 
 struct sub {
     int index;
-    bool complete;
     AVSubtitle avsub;
     uint64_t pts;
     uint64_t endpts;
@@ -28,7 +27,6 @@ struct sub {
 static void screenshot(struct sub *sub);
 
 void free_sub(struct sub *s) {
-    s->complete = false;
     avsubtitle_free(&s->avsub);
     s->pts = AV_NOPTS_VALUE;
     s->endpts = AV_NOPTS_VALUE;
@@ -95,6 +93,7 @@ int main(int argc, char **argv) {
     AVSubtitle sub;
     AVPacket packet;
     int got_sub;
+    bool waiting = false;
     struct sub *prev = talloc_zero(NULL, struct sub);
 
     while (1) {
@@ -121,8 +120,20 @@ int main(int argc, char **argv) {
             continue;
         }
 
-        if (!prev->complete && !sub.num_rects) {
-            prev->complete = true;
+        assert(sub.num_rects < 2);
+
+        // a new sub will come in and we wait for the next, which can be full
+        // or empty
+        if (!waiting && sub.num_rects) {
+            prev->avsub = sub;
+            prev->pts = packet.pts;
+            waiting = true;
+            goto cleanup;
+        }
+
+        // we are waiting for a new sub, which can be either full, or empty
+        // just to signal the end of the event
+        if (waiting) {
             prev->endpts = packet.pts;
             AVRational tb = stream->time_base;
             prev->start = prev->pts * av_q2d(tb);
@@ -130,11 +141,18 @@ int main(int argc, char **argv) {
             screenshot(prev);
             prev->index++;
             limit--;
-        } else {
-            prev->complete = false;
-            prev->pts = packet.pts;
-            prev->avsub = sub;
+
+            if (sub.num_rects) {
+                prev->avsub = sub;
+                prev->pts = packet.pts;
+            } else {
+                waiting = false;
+            }
+            goto cleanup;
         }
+
+
+        cleanup:
 
         if (limit == 0) {
             warn("reached FRAME_LIMIT\n");
@@ -142,8 +160,6 @@ int main(int argc, char **argv) {
         }
 
         av_packet_unref(&packet);
-
-
     }
 
     return 0;
