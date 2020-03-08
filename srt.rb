@@ -1,3 +1,4 @@
+#!/usr/bin/env ruby
 # frozen_string_literal: true
 
 require 'bundler/inline'
@@ -22,7 +23,7 @@ def to_time(seconds)
   "#{hhmmss},#{ms}"
 end
 
-Dir.glob('./supdata/*.png').each_with_index do |file, idx|
+Dir.glob('./supdata/*.png').sort.each_with_index do |file, idx|
   xattr = Xattr.new(file)
   start_time = xattr['start-time']
   end_time = xattr['end-time']

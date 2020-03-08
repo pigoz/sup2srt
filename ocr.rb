@@ -1,3 +1,4 @@
+#!/usr/bin/env ruby
 # frozen_string_literal: true
 
 require 'bundler/inline'
@@ -18,9 +19,7 @@ def ocr_image(image_path)
   xattr = Xattr.new(image_path)
 
   if xattr['ocr-text']
-    log(image_path,
-        :light_green,
-        "skip: has ocr-text: '#{xattr['ocr-text']}'")
+    log(image_path, :light_green, "skip: #{xattr['ocr-text']}")
     return
   end
 
@@ -32,16 +31,12 @@ def ocr_image(image_path)
   response.responses.each do |res|
     text = res.text_annotations.first.description.strip
     xattr['ocr-text'] = text
-    log(image_path,
-        :green,
-        "done: ocr'd text '#{text}'")
+    log(image_path, :green, "done: #{text}")
   end
 rescue StandardError => e
-  log(image_path,
-      :red,
-      "error: '#{e.message}'")
+  log(image_path, :red, "error: #{e.message}")
 end
 
-Dir.glob('./supdata/*.png') do |file|
+Dir.glob('./supdata/*.png').sort.each do |file|
   ocr_image(file)
 end
