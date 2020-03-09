@@ -90,11 +90,11 @@ int main(int argc, char **argv) {
 
     char *envlimit = getenv("FRAME_LIMIT");
     int limit = envlimit ? atoi(envlimit) : -1;
-    AVSubtitle sub;
+    AVSubtitle avsub;
     AVPacket packet;
     int got_sub;
     bool waiting = false;
-    struct sub *prev = talloc_zero(NULL, struct sub);
+    struct sub *sub = talloc_zero(NULL, struct sub);
 
     while (1) {
         int res = av_read_frame(formatctx, &packet);
@@ -109,7 +109,7 @@ int main(int argc, char **argv) {
             break;
         }
 
-        res = avcodec_decode_subtitle2(codecctx, &sub, &got_sub, &packet);
+        res = avcodec_decode_subtitle2(codecctx, &avsub, &got_sub, &packet);
 
         if (res < 0) {
             err("decode sub error: %s", av_err2str(res));
@@ -120,13 +120,13 @@ int main(int argc, char **argv) {
             continue;
         }
 
-        assert(sub.num_rects < 2);
+        assert(avsub.num_rects < 2);
 
         // a new sub will come in and we wait for the next, which can be full
         // or empty
-        if (!waiting && sub.num_rects) {
-            prev->avsub = sub;
-            prev->pts = packet.pts;
+        if (!waiting && avsub.num_rects) {
+            sub->avsub = avsub;
+            sub->pts = packet.pts;
             waiting = true;
             goto cleanup;
         }
@@ -134,17 +134,17 @@ int main(int argc, char **argv) {
         // we are waiting for a new sub, which can be either full, or empty
         // just to signal the end of the event
         if (waiting) {
-            prev->endpts = packet.pts;
+            sub->endpts = packet.pts;
             AVRational tb = stream->time_base;
-            prev->start = prev->pts * av_q2d(tb);
-            prev->end = prev->endpts * av_q2d(tb);
-            screenshot(prev);
-            prev->index++;
+            sub->start = sub->pts * av_q2d(tb);
+            sub->end = sub->endpts * av_q2d(tb);
+            screenshot(sub);
+            sub->index++;
             limit--;
 
-            if (sub.num_rects) {
-                prev->avsub = sub;
-                prev->pts = packet.pts;
+            if (avsub.num_rects) {
+                sub->avsub = avsub;
+                sub->pts = packet.pts;
             } else {
                 waiting = false;
             }
@@ -165,40 +165,42 @@ int main(int argc, char **argv) {
     return 0;
 }
 
+static void postprocess(uint8_t *bgra, uint32_t *pal) {
+    uint8_t limit = 255 / 2;
+    uint8_t gray = (bgra[0] + bgra[1] + bgra[2]) / 3;
+    // TODO maybe preserve some anti aliasing
+    bgra[0] = 0;
+    bgra[1] = 0;
+    bgra[2] = 0;
+    // removes the border
+    bgra[3] = bgra[3] > 0 && gray > limit ? 255 : 0;
+}
+
 static void screenshot(struct sub *sub) {
     log("[%04d] %f => %f\n", sub->index, sub->start, sub->end);
-    int pixel_size = 4;
-    int depth = 8;
+    int channels = 4;
     AVSubtitle avsub = sub->avsub;
-    int width = 1920;
-    int height = 1080;
-    int lsize = 0;
-    uint8_t *pict;
 
-    for (int i = 0; i < avsub.num_rects; i++) {
-        AVSubtitleRect *rect = avsub.rects[i];
-        uint8_t **data = rect->data;
-        assert(rect->nb_colors > 0);
-        assert(rect->nb_colors <= 256);
-        uint32_t pal[256] = {0};
-        memcpy(pal, data[1], rect->nb_colors * 4);
-        lsize = rect->linesize[0];
-        width = rect->w;
-        height = rect->h;
-        pict = talloc_array(NULL, uint8_t, 4 * width * height);
+    assert(avsub.num_rects == 1);
 
-        for(int y = 0; y < rect->h; y++) {
-            for(int x = 0; x < rect->w; x++) {
-                int idx = y * lsize + x;
-                int color = data[0][idx];
-                memcpy(&pict[idx], &pal[color], 4);
-                /*
-                uint8_t rgba[4];
-                continue;
-                log("%d %d => %d-%d-%d-%d \n",
-                    x, y, rgba[0], rgba[1], rgba[2], rgba[3]);
-                */
-            }
+    AVSubtitleRect *rect = avsub.rects[0];
+    uint8_t **data = rect->data;
+    assert(rect->nb_colors > 0);
+    assert(rect->nb_colors <= 256);
+
+    uint32_t pal[256] = {0};
+    memcpy(pal, data[1], rect->nb_colors * channels);
+
+    int lsize = rect->linesize[0];
+    int width = rect->w;
+    int height = rect->h;
+    uint32_t *pict = talloc_array(sub, uint32_t, width * height);
+
+    for(int y = 0; y < height; y++) {
+        for(int x = 0; x < width; x++) {
+            int idx = y * lsize + x;
+            int color = data[0][idx];
+            memcpy(pict + idx, pal + color, channels);
         }
     }
 
@@ -206,21 +208,23 @@ static void screenshot(struct sub *sub) {
         PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
     png_infop info = png_create_info_struct(png);
 
-    png_set_IHDR(png, info, width, height, depth, PNG_COLOR_TYPE_RGBA,
-        PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT,
-        PNG_FILTER_TYPE_DEFAULT);
+    png_set_IHDR(png, info, width, height, 8,
+        PNG_COLOR_TYPE_RGB_ALPHA, PNG_INTERLACE_NONE,
+        PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_BASE);
 
-    png_byte **rows = png_malloc(png, height * sizeof (png_byte *));
+    png_byte **rows = png_malloc(png, height * sizeof(png_byte *));
     for (int y = 0; y < height; y++) {
-        png_byte *row = png_malloc(png, sizeof(uint8_t) * width * pixel_size);
+        png_byte *row = png_malloc(png, sizeof(uint8_t) * width * channels);
         rows[y] = row;
         for (int x = 0; x < width; x++) {
-            uint8_t *rgba = &pict[y * lsize + x];
-            int l = 80;
-            *row++ = rgba[0] > l ? 0 : 255;
-            *row++ = rgba[0] > l ? 0 : 255;
-            *row++ = rgba[0] > l ? 0 : 255;
-            *row++ = rgba[0] <= 112 ? 0 : 255;
+            int idx = y * lsize + x;
+            uint8_t bgra[channels];
+            memcpy(bgra, pict + idx, channels);
+            postprocess(bgra, pal);
+            *row++ = bgra[2];
+            *row++ = bgra[1];
+            *row++ = bgra[0];
+            *row++ = bgra[3];
         }
     }
 
