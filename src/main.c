@@ -166,7 +166,7 @@ int main(int argc, char **argv) {
 }
 
 static void postprocess(uint8_t *bgra, uint32_t *pal) {
-    uint8_t limit = 255 / 2;
+    uint8_t limit = 255 / 2.2;
     uint8_t gray = (bgra[0] + bgra[1] + bgra[2]) / 3;
     // TODO maybe preserve some anti aliasing
     bgra[0] = 0;

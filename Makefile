@@ -8,8 +8,12 @@ build:
 	[ -d $(BUILDDIR) ] || meson $(BUILDDIR)
 	ninja -C$(BUILDDIR)
 
-test: build
+test-sup: build
 	FRAME_LIMIT=7 FILE=fixtures/bgum1.sup make run
+	xattr -l supdata/frame-00001.png
+
+test-sub: build
+	FRAME_LIMIT=7 FILE=fixtures/maiboss1.idx make run
 	xattr -l supdata/frame-00001.png
 
 clean:
