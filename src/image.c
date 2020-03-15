@@ -19,7 +19,6 @@ static void subpp(uint8_t *bgra, uint32_t *pal) {
 
 
 void sub_to_image(struct sub *sub) {
-    log("[%04d] %f => %f\n", sub->index, sub->start, sub->end);
     int channels = 4;
     AVSubtitle avsub = sub->avsub;
 
@@ -74,6 +73,10 @@ void sub_to_image(struct sub *sub) {
     mkdir("supdata", 0700);
     sprintf(filename, "supdata/frame-%05d.png", sub->index);
     FILE *fp = fopen(filename, "wb");
+    if (!fp) {
+        err("failed to open file '%s' (%s)\n", filename, strerror(errno));
+        goto cleanup;
+    }
     png_init_io(png, fp);
     png_set_rows(png, info, rows);
     png_write_png(png, info, PNG_TRANSFORM_IDENTITY, NULL);
@@ -84,6 +87,8 @@ void sub_to_image(struct sub *sub) {
     sprintf(xattrv, "%f", sub->end);
     fsetxattr(fileno(fp), "end-time", xattrv, strlen(xattrv), 0, 0);
     fclose(fp);
+
+cleanup:
 
     for (int y = 0; y < height; y++) {
         png_free(png, rows[y]);
