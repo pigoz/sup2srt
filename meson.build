@@ -1,6 +1,6 @@
 project('sup2srt', 'c')
 
-ffmpeg = [
+deps = [
   dependency('libpng'),
   dependency('libavutil', version: '>= 56.12.100'),
   dependency('libavcodec', version: '>= 58.16.100'),
@@ -13,7 +13,13 @@ ffmpeg = [
 sources = [
  'src/ta/ta_utils.c',
  'src/ta/ta.c',
- 'src/main.c',
+ 'src/image.c',
+ 'src/demuxer.c',
 ]
 
-executable('sup2srt', sources, dependencies: ffmpeg)
+executable('sup2srt', sources + ['src/main.c'], dependencies: deps)
+
+test('demuxer', executable(
+  'demuxer_test',
+  sources + ['test/demuxer_test.c'],
+  dependencies: deps))
