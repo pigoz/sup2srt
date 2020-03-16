@@ -19,6 +19,8 @@ static void subpp(uint8_t *bgra, uint32_t *pal) {
 
 
 void sub_to_image(struct sub *sub) {
+    log("[%04d] %f => %f\n", sub->index, sub->start, sub->end);
+
     int channels = 4;
     AVSubtitle avsub = sub->avsub;
 

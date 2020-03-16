@@ -15,6 +15,7 @@ sources = [
  'src/ta/ta.c',
  'src/image.c',
  'src/demuxer.c',
+ 'src/tqueue.c',
 ]
 
 executable('sup2srt', sources + ['src/main.c'], dependencies: deps)
