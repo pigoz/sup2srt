@@ -37,12 +37,20 @@ struct demuxer *demuxer_init(void *talloc_ctx, char *fname) {
         return NULL;
     }
 
-    if (formatctx->nb_streams != 1) {
-        err("stream size not 1 (%d)\n", formatctx->nb_streams);
+    AVStream *stream = NULL;
+
+    for (int i = 0; !stream || i < formatctx->nb_streams; i++) {
+        AVStream *cur = formatctx->streams[i];
+        if (cur->codecpar->codec_type == AVMEDIA_TYPE_SUBTITLE) {
+            stream = cur;
+        }
+    }
+
+    if (!stream) {
+        err("subtitles not found (streams: %d)\n", formatctx->nb_streams);
         return NULL;
     }
 
-    AVStream *stream = formatctx->streams[0];
     AVCodecParameters *codecpar = stream->codecpar;
     AVCodec *codec = avcodec_find_decoder(codecpar->codec_id);
 
