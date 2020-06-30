@@ -17,16 +17,11 @@ static void subpp(uint8_t *bgra, uint32_t *pal) {
     bgra[3] = bgra[3] > 0 && gray > limit ? 255 : 0;
 }
 
-
-void sub_to_image(struct sub *sub) {
-    log("[%04d] %f => %f\n", sub->index, sub->start, sub->end);
-
+void rect_to_image(struct sub *sub, int rect_idx) {
     int channels = 4;
     AVSubtitle avsub = sub->avsub;
 
-    assert(avsub.num_rects == 1);
-
-    AVSubtitleRect *rect = avsub.rects[0];
+    AVSubtitleRect *rect = avsub.rects[rect_idx];
     uint8_t **data = rect->data;
     assert(rect->nb_colors > 0);
     assert(rect->nb_colors <= 256);
@@ -73,7 +68,7 @@ void sub_to_image(struct sub *sub) {
 
     char filename[72];
     mkdir("supdata", 0700);
-    sprintf(filename, "supdata/frame-%05d.png", sub->index);
+    sprintf(filename, "supdata/frame-%05d-%05d.png", sub->index, rect_idx);
     FILE *fp = fopen(filename, "wb");
     if (!fp) {
         err("failed to open file '%s' (%s)\n", filename, strerror(errno));
@@ -97,4 +92,13 @@ cleanup:
     }
 
     png_free(png, rows);
+}
+
+void sub_to_image(struct sub *sub) {
+    log("[%04d] %f => %f\n", sub->index, sub->start, sub->end);
+
+    AVSubtitle avsub = sub->avsub;
+    for (int i = 0; i < avsub.num_rects; i++) {
+        rect_to_image(sub, i);
+    }
 }

@@ -118,8 +118,6 @@ struct sub **demuxer_decode_subs(struct demuxer *demuxer, int *limit) {
             continue;
         }
 
-        assert(avsub.num_rects < 2);
-
         // a new sub will come in and we wait for the next, which can be full
         // or empty
         if (!waiting && avsub.num_rects > 0) {
