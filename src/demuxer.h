@@ -24,3 +24,4 @@ struct sub {
 
 struct demuxer *demuxer_init(void *talloc_ctx, char *fname);
 struct sub **demuxer_decode_subs(struct demuxer *demuxer, int *limit);
+struct sub **demuxer_coalesce_subs(struct sub **, int *limit);

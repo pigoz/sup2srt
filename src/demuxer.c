@@ -158,5 +158,56 @@ struct sub **demuxer_decode_subs(struct demuxer *demuxer, int *limit) {
 
     *limit = index;
 
-    return list;
+    return demuxer_coalesce_subs(list, limit);
+}
+
+bool sub_equals(struct sub *a, struct sub *b) {
+    AVSubtitle as = a->avsub;
+    AVSubtitle bs = b->avsub;
+
+    if (as.num_rects != bs.num_rects) {
+        return false;
+    }
+
+    for (int i = 0; i < as.num_rects; i++) {
+        AVSubtitleRect *ar = as.rects[i];
+        AVSubtitleRect *br = bs.rects[i];
+
+        if (ar->w != br->w || ar->h != br->h) {
+            return false;
+        }
+
+        // technically I should be doing a memcmp on the avpicture, but I
+        // don't really care for now
+    }
+
+    return true;
+}
+
+bool sub_adj(struct sub *a, struct sub *b) {
+    int end = a->end * 100000;
+    int start = b->start * 100000;
+    return end == start;
+}
+
+struct sub **demuxer_coalesce_subs(struct sub **src, int *limit) {
+    struct sub **dst = talloc_array(NULL, struct sub *, 0);
+    int list_num = 0;
+    for (int i = 0; i < *limit; i++) {
+        struct sub *cur = src[i];
+        bool found = false;
+        for (int j = i - 1; j > i - 4 && j >= 0; j--) {
+            struct sub *search = src[j];
+            if (sub_adj(search, cur) && sub_equals(search, cur)) {
+                search->end = cur->end;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            MP_TARRAY_APPEND(src, dst, list_num, cur);
+        }
+    }
+    *limit = list_num;
+    return dst;
 }
