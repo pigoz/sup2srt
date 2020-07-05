@@ -23,7 +23,7 @@ void rect_to_image(struct sub *sub, int rect_idx) {
 
     AVSubtitleRect *rect = avsub.rects[rect_idx];
     uint8_t **data = rect->data;
-    assert(rect->nb_colors > 0);
+    assert(rect->nb_colors >= 0);
     assert(rect->nb_colors <= 256);
 
     uint32_t pal[256] = {0};
@@ -32,6 +32,11 @@ void rect_to_image(struct sub *sub, int rect_idx) {
     int lsize = rect->linesize[0];
     int width = rect->w;
     int height = rect->h;
+
+    if (width == 0 || height == 0) {
+        return;
+    }
+
     uint32_t *pict = talloc_array(sub, uint32_t, width * height);
 
     for(int y = 0; y < height; y++) {
