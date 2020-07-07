@@ -196,8 +196,8 @@ struct sub **demuxer_coalesce_subs(struct sub **src, int *limit) {
     for (int i = 0; i < *limit; i++) {
         struct sub *cur = src[i];
         bool found = false;
-        for (int j = i - 1; j > i - 4 && j >= 0; j--) {
-            struct sub *search = src[j];
+        for (int j = list_num - 1; j > list_num - 4 && j >= 0; j--) {
+            struct sub *search = dst[j];
             if (sub_adj(search, cur) && sub_equals(search, cur)) {
                 search->end = cur->end;
                 found = true;
