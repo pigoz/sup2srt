@@ -6,15 +6,24 @@
 #include "./log.h"
 #include "./image.h"
 
-static void subpp(uint8_t *bgra, uint32_t *pal) {
+static void binarize(uint8_t *bgra, uint32_t *pal) {
     uint8_t limit = 255 / 2.2;
     uint8_t gray = (bgra[0] + bgra[1] + bgra[2]) / 3;
+    uint8_t black = 0;
+    uint8_t white = 255;
+
     // TODO maybe preserve some anti aliasing
-    bgra[0] = 0;
-    bgra[1] = 0;
-    bgra[2] = 0;
-    // removes the border
-    bgra[3] = bgra[3] > 0 && gray > limit ? 255 : 0;
+    if (bgra[3] > 0 && gray > limit) {
+        bgra[0] = black;
+        bgra[1] = black;
+        bgra[2] = black;
+    } else {
+        bgra[0] = white;
+        bgra[1] = white;
+        bgra[2] = white;
+    }
+
+    bgra[3] = 255;
 }
 
 void rect_to_image(struct sub *sub, int rect_idx) {
@@ -63,7 +72,7 @@ void rect_to_image(struct sub *sub, int rect_idx) {
             int idx = y * lsize + x;
             uint8_t bgra[channels];
             memcpy(bgra, pict + idx, channels);
-            subpp(bgra, pal);
+            binarize(bgra, pal);
             *row++ = bgra[2];
             *row++ = bgra[1];
             *row++ = bgra[0];
