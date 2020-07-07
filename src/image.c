@@ -64,6 +64,10 @@ void rect_to_image(struct sub *sub, int rect_idx) {
         PNG_COLOR_TYPE_RGB_ALPHA, PNG_INTERLACE_NONE,
         PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_BASE);
 
+    int dpi = 72;
+    int ppm = (dpi * 10000 + 127) / 254;
+    png_set_pHYs(png, info, ppm, ppm, PNG_RESOLUTION_METER);
+
     png_byte **rows = png_malloc(png, height * sizeof(png_byte *));
     for (int y = 0; y < height; y++) {
         png_byte *row = png_malloc(png, sizeof(uint8_t) * width * channels);
